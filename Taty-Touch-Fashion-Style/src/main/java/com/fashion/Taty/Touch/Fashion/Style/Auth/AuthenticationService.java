@@ -4,21 +4,29 @@ package com.fashion.Taty.Touch.Fashion.Style.Auth;
 import com.fashion.Taty.Touch.Fashion.Style.Email.EmailService;
 import com.fashion.Taty.Touch.Fashion.Style.Email.EmailTemplateName;
 import com.fashion.Taty.Touch.Fashion.Style.Role.RoleRepository;
+import com.fashion.Taty.Touch.Fashion.Style.Security.JwtService;
 import com.fashion.Taty.Touch.Fashion.Style.User.Token;
 import com.fashion.Taty.Touch.Fashion.Style.User.TokenRepository;
 import com.fashion.Taty.Touch.Fashion.Style.User.User;
 import com.fashion.Taty.Touch.Fashion.Style.User.UserRepository;
 import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthenticationService {
 
     private final RoleRepository roleRepository;
@@ -26,7 +34,9 @@ public class AuthenticationService {
     private final UserRepository  userRepository;
     private final TokenRepository tokenRepository;
     private final EmailService emailService;
+    private final AuthenticationManager authenticationManager;
     private String activationUrl = "http://localhost:4200/activate-account";
+    private final JwtService jwtService;
 
 
     public void register(RegistrationRequest request) throws MessagingException {
@@ -39,7 +49,7 @@ public class AuthenticationService {
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .accountLocked(false)
-                .accountEnabled(false)
+                .enabled(false)
                 .roles(List.of(userRole))
                 .build();
         userRepository.save(user);
@@ -66,7 +76,7 @@ public class AuthenticationService {
         var token = Token.builder()
                 .token(generatedToken)
                 .createdAt(LocalDateTime.now())
-                .expiredAt(LocalDateTime.now().minusMinutes(15))
+                .expiredAt(LocalDateTime.now().plusMinutes(15))
                 .user(user)
                 .build();
         tokenRepository.save(token);
@@ -84,5 +94,48 @@ public class AuthenticationService {
             codeBuilder.append(characters.charAt(randomIndex));
         }
         return codeBuilder.toString();
+    }
+
+    public AuthenticationResponse authenticate(AuthenticationRequest request) {
+
+        log.info("Here1");
+        log.info(request.getEmail());
+        var auth = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        request.getEmail(),
+                        request.getPassword()
+                )
+        );
+             log.info(String.valueOf(auth));
+             var claims = new HashMap<String, Object>();
+             var user = ((User)auth.getPrincipal());
+             claims.put("fullName", user.fullName());
+             var jwtToken = jwtService.generateToken(claims, user);
+             log.info(jwtToken);
+
+        return AuthenticationResponse.builder()
+                .token(jwtToken)
+                .build();
+    }
+
+
+    //@Transactional
+    public void activateAccount(String token) throws MessagingException {
+
+        Token savedToken = tokenRepository.findByToken(token)
+
+                .orElseThrow(() -> new RuntimeException("Invalid token"));
+
+        if (LocalDateTime.now().isAfter(savedToken.getExpiredAt())){
+            sendValidationEmail(savedToken.getUser());
+            throw new RuntimeException("Activation code has expired.A new one has been sent");
+        }
+        var user = userRepository.findById(savedToken.getUser().getId())
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+            user.setEnabled(true);
+
+            userRepository.save(user);
+            savedToken.setValidatedAt(LocalDateTime.now());
+            tokenRepository.save(savedToken);
     }
 }

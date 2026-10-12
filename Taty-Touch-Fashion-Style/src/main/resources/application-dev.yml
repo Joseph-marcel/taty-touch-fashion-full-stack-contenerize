@@ -1,8 +1,13 @@
 spring:
+  application:
+    name:
+  main:
+    allow-bean-definition-overriding: true
+    allow-circular-references: true
   datasource:
-    url: jdbc:mysql://localhost:3306/taty-touch-fashion-docker-db
-    username: ${DB_USERNAME:-root}
-    password: ${DB_PASSWORD}
+    url: jdbc:mysql://localhost:3307/taty-touch-fashion-docker-db?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true
+    username: root
+    password: cameroon26
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
@@ -13,6 +18,12 @@ spring:
         format_sql: true
       database: mysql
       database-platform: org.hibernate.dialect.MySQLDialect
+    defer-datasource-initialization: true
+  sql:
+    init:
+      mode: always
+  jackson:
+      date-format: yyyy-MM-dd
   mail:
     host: localhost
     port: 1025
@@ -28,3 +39,6 @@ spring:
         connectiontimeout: 5000
         timeout: 5000
         writetimeout: 5000
+
+
+

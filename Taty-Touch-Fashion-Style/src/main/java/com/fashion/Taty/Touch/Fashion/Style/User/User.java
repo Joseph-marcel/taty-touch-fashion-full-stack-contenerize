@@ -1,12 +1,10 @@
 package com.fashion.Taty.Touch.Fashion.Style.User;
 
 
+import com.fashion.Taty.Touch.Fashion.Style.BooleanConverter.TrueFalseBooleanConverter;
 import com.fashion.Taty.Touch.Fashion.Style.Role.Role;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -17,29 +15,38 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.security.Principal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
+
+@Getter
+@Setter
+@Builder
 @Entity
 @NoArgsConstructor
 @AllArgsConstructor
-@Data
-@Builder
 @Table(name = "users")
 @EntityListeners(AuditingEntityListener.class)
 public class User implements UserDetails,Principal{
 
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
     private String  firstname;
     private String  lastname;
     @Column(unique = true)
     private String  email;
     private String  password;
+
+
+    @Convert(converter = TrueFalseBooleanConverter.class)
+    @Column(name = "account_locked", length = 5)
     private boolean accountLocked;
-    private boolean accountEnabled;
+    @Convert(converter = TrueFalseBooleanConverter.class)
+    @Column(name = "enabled", length = 5)
+    private boolean enabled;
 
     @CreatedDate
     @Column(nullable = false,updatable = false)
@@ -49,7 +56,7 @@ public class User implements UserDetails,Principal{
     private LocalDateTime lastModifiedDate;
 
     @ManyToMany(fetch = FetchType.EAGER)
-    private List<Role> roles;
+    private List<Role> roles = new ArrayList<>();
 
 
     @Override
@@ -81,9 +88,9 @@ public class User implements UserDetails,Principal{
         return true;
     }
 
-    @Override
+   @Override
     public boolean isAccountNonLocked() {
-        return !isAccountNonLocked();
+        return !accountLocked;
     }
 
     @Override
@@ -93,7 +100,7 @@ public class User implements UserDetails,Principal{
 
     @Override
     public boolean isEnabled() {
-        return accountEnabled;
+        return enabled;
     }
 
     public String fullName(){

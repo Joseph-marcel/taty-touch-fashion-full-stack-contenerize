@@ -1,0 +1,57 @@
+
+services:
+  app:
+    build: .
+    image: taty-touch-app:latest
+    container_name: taty-touch-app
+    restart: unless-stopped
+    ports:
+      - "8096:8096"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE:-dev}
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:${DB_PORT}/${DB_NAME}?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      SPRING_MAIL_HOST: maildev
+      SPRING_MAIL_PORT: 1025
+    depends_on:
+      mysql:
+        condition: service_healthy
+      maildev:
+        condition: service_started
+    networks:
+      - taty-touch-fashion-docker-network
+  mysql:
+    image: mysql:8.0
+    container_name: taty-touch-fashion-docker-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "3307:${DB_PORT}"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - taty-touch-fashion-docker-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+  maildev:
+    image: maildev/maildev
+    container_name: taty-touch-fashion-docker-maildev
+    restart: unless-stopped
+    ports:
+      - "1080:1080"
+      - "1025:1025"
+    networks:
+      - taty-touch-fashion-docker-network
+
+volumes:
+  mysql-data:
+
+networks:
+  taty-touch-fashion-docker-network:
+    driver: bridge
